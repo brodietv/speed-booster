@@ -211,7 +211,7 @@
     if (!items.length && !searching) {
       html.push(`<div class="empty">${query ? 'No matches in this chat' : 'Your prompts will show up here'}</div>`);
     }
-    list.innerHTML = html.join('');
+    SB.ui.html(list, html.join(''));
     currentIndex = -1;
     updateCurrent();
   }
@@ -249,19 +249,28 @@
   }
 
   function activate(entry) {
-    if (entry.kind !== 'hidden') {
-      const el = elementFor(entry);
-      if (el) {
-        if (el.hasAttribute('data-sb-collapsed')) SB.speed.loadMore('all');
-        SB.actions.reveal(el);
-        // Answers inside a virtualized turn render after the scroll; land on the exact message.
-        if (entry.role === 'assistant' && entry.promptId && el === SB.chatgpt.findTurn(entry.promptId)) {
-          setTimeout(() => SB.actions.reveal(SB.chatgpt.findTurn(entry.id)), 450);
-        }
-        return;
-      }
+    const anchor = entry.role === 'assistant' && entry.promptId ? entry.promptId : entry.id;
+    // Answers inside a virtualized turn render after the scroll; then land on the exact message.
+    const refine = () => {
+      if (entry.role !== 'assistant') return;
+      setTimeout(() => {
+        const exact = SB.chatgpt.findTurn(entry.id);
+        if (exact && exact !== SB.chatgpt.findTurn(entry.promptId)) SB.actions.reveal(exact);
+      }, 450);
+    };
+    if (entry.kind === 'hidden') {
+      if (anchor) SB.speed.reach(anchor, entry.fromEnd || 1);
+      return;
     }
-    if (entry.id) SB.speed.reach(entry.role === 'assistant' && entry.promptId ? entry.promptId : entry.id, entry.fromEnd || 1);
+    const el = elementFor(entry);
+    if (el) {
+      if (el.hasAttribute('data-sb-collapsed')) SB.speed.loadMore('all');
+      SB.actions.reveal(el);
+      refine();
+    } else if (anchor) {
+      // Loaded, but virtualized out of the page right now: scroll it into existence.
+      SB.actions.seek(anchor).then((found) => (found ? refine() : SB.ui.toast("Couldn't find that message on the page", 'error')));
+    }
   }
 
   function position() {

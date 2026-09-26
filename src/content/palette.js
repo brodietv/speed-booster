@@ -150,7 +150,7 @@
       }
     }
     if (!items.length) html.push('<div class="empty">No matches</div>');
-    results.innerHTML = html.join('');
+    SB.ui.html(results, html.join(''));
     select(0);
   }
 
@@ -167,7 +167,7 @@
   }
 
   function footer(html) {
-    box.querySelector('footer').innerHTML = html;
+    SB.ui.html(box.querySelector('footer'), html);
   }
 
   function searchFooter() {
@@ -187,7 +187,7 @@
 
   function showSearch() {
     box.querySelector('.input-row').classList.remove('hidden');
-    box.querySelector('.form-host').innerHTML = '';
+    box.querySelector('.form-host').replaceChildren();
     results.classList.remove('hidden');
     searchFooter();
     renderResults();
@@ -231,7 +231,7 @@
     box.querySelector('.input-row').classList.add('hidden');
     results.classList.add('hidden');
     const host = box.querySelector('.form-host');
-    host.innerHTML = `<form class="form" novalidate><h4>${SB.ui.escape(title)}</h4>${inner}</form>`;
+    SB.ui.html(host, `<form class="form" novalidate><h4>${SB.ui.escape(title)}</h4>${inner}</form>`);
     return host.querySelector('form');
   }
 

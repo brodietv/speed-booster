@@ -274,9 +274,14 @@
     if (!host) {
       host = document.createElement('speed-booster-ui');
       const shadow = host.attachShadow({ mode: 'open' });
-      shadow.innerHTML = `<style>${CSS}</style><div class="sb"><div class="toasts"></div></div>`;
-      container = shadow.querySelector('.sb');
-      toastBox = shadow.querySelector('.toasts');
+      const style = document.createElement('style');
+      style.textContent = CSS;
+      container = document.createElement('div');
+      container.className = 'sb';
+      toastBox = document.createElement('div');
+      toastBox.className = 'toasts';
+      container.appendChild(toastBox);
+      shadow.append(style, container);
       syncTheme();
       new MutationObserver(syncTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style'] });
       matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncTheme);
@@ -291,10 +296,26 @@
     return container;
   }
 
-  function el(html) {
-    const template = document.createElement('template');
-    template.innerHTML = html.trim();
-    return template.content.firstElementChild;
+  const parser = new DOMParser();
+
+  /**
+   * Parse our own UI markup into nodes. Every dynamic value in it has already
+   * gone through escape(), so chat content can never become markup.
+   */
+  function fragment(markup) {
+    const doc = parser.parseFromString(`<body>${markup}</body>`, 'text/html');
+    const out = document.createDocumentFragment();
+    out.append(...doc.body.childNodes);
+    return out;
+  }
+
+  function el(markup) {
+    return fragment(markup.trim()).firstElementChild;
+  }
+
+  /** Replace an element's children with parsed markup. */
+  function html(target, markup) {
+    target.replaceChildren(fragment(markup));
   }
 
   function toast(message, type) {
@@ -324,6 +345,7 @@
     host: () => host,
     icon,
     el,
+    html,
     toast,
     escape,
     owns,

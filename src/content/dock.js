@@ -95,7 +95,7 @@
 
   function renderPopover() {
     if (!popover) return;
-    popover.innerHTML = popoverKind === 'speed' ? speedContent() : exportContent();
+    SB.ui.html(popover, popoverKind === 'speed' ? speedContent() : exportContent());
     placePopover();
   }
 
@@ -150,11 +150,14 @@
 
   function build() {
     dock = SB.ui.el('<nav class="dock" aria-label="Speed Booster"></nav>');
-    dock.innerHTML = BUTTONS.map((b) =>
-      b.sep
-        ? '<div class="dock-sep"></div>'
-        : `<button class="dock-btn" data-id="${b.id}" aria-label="${b.tip}">${SB.ui.icon(b.icon)}</button>`
-    ).join('');
+    SB.ui.html(
+      dock,
+      BUTTONS.map((b) =>
+        b.sep
+          ? '<div class="dock-sep"></div>'
+          : `<button class="dock-btn" data-id="${b.id}" aria-label="${b.tip}">${SB.ui.icon(b.icon)}</button>`
+      ).join('')
+    );
     dock.addEventListener('click', onClick);
     SB.ui.root().appendChild(dock);
   }

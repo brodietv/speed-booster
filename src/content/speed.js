@@ -79,36 +79,12 @@
     }
   }
 
-  /**
-   * Scroll to a turn, then keep it aligned for a few seconds: ChatGPT pins
-   * freshly loaded chats to the bottom and virtualized turns above change height
-   * as they render. Any wheel/touch/key/click from the user ends the correction.
-   */
-  function landOn(el) {
-    SB.actions.reveal(el);
-    const events = ['wheel', 'touchmove', 'keydown', 'mousedown'];
-    let cancelled = false;
-    const cancel = () => (cancelled = true);
-    for (const type of events) window.addEventListener(type, cancel, { capture: true, passive: true });
-    for (const delay of [400, 1000, 1800, 3000]) {
-      setTimeout(() => {
-        if (cancelled || !el.isConnected) return;
-        const scroller = SB.chatgpt.scroller();
-        const top = scroller === document.scrollingElement ? 0 : scroller.getBoundingClientRect().top;
-        if (Math.abs(el.getBoundingClientRect().top - top) > 24) el.scrollIntoView({ block: 'start' });
-      }, delay);
-    }
-    setTimeout(() => {
-      for (const type of events) window.removeEventListener(type, cancel, { capture: true });
-    }, 3100);
-  }
-
   function seekStep() {
     if (!seeking) return;
     const el = SB.chatgpt.findTurn(seeking.id);
     if (el) {
       seeking = null;
-      landOn(el);
+      SB.actions.reveal(el);
       return;
     }
     if (seeking.passive) {

@@ -129,10 +129,13 @@ most-used settings. Everything else, including the prompt manager, is on the set
 - **Fail-safe by design.** Anything unexpected, such as an unknown response shape, a network error or an
   inconsistent tree, returns ChatGPT's original response untouched. Deep links (`?message=`) and temporary chats
   are never trimmed.
-- **Trimming never splits a turn.** It keeps hidden system/context nodes and every branch below the cut, so
-  message versions (`< 2/3 >`) and tool confirmations keep working.
+- **Trimming never splits a turn.** It keeps hidden system/context nodes, every branch below the cut, and the
+  first visible prompt's real parent (as a hidden node). That keeps message versions (`< 2/3 >`), editing and tool
+  confirmations working.
 - **One file knows ChatGPT's DOM** ([`src/content/chatgpt.js`](src/content/chatgpt.js)), with fallbacks for
   older markup. That makes a redesign a one-file fix.
+- **Virtualization-aware.** ChatGPT only mounts the turns near your screen, so the outline and search work from
+  the conversation data, not the page. Jumping to a prompt that isn't mounted scrolls it into existence first.
 - Our UI lives in a Shadow DOM, so it never fights ChatGPT's styles. Timestamps are drawn with CSS `attr()`, so
   React's DOM is never restructured.
 - ChatGPT re-requests open chats every few seconds. Identical payloads are recognised and not re-processed.
@@ -142,7 +145,7 @@ most-used settings. Everything else, including the prompt manager, is on the set
 ```bash
 npm install            # dev dependency: Playwright (for tests and icon rendering)
 npm test               # unit tests (node:test) — trimming, paging, export formats, markdown, prompts, settings
-npm run test:e2e       # loads the real extension in Chromium against a mock ChatGPT (both loaders, both layouts)
+npm run test:e2e       # loads the real extension in Chromium against a mock ChatGPT (both loaders, 3 layouts)
 npm run build          # dist/chrome, dist/firefox and store-ready zips
 npm run icons          # re-render icons/*.png from icons/icon.svg
 ```

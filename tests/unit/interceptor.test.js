@@ -53,11 +53,27 @@ test('trims to the last N turns and keeps the tree consistent', () => {
   const path = core.activePath(result.data);
   assert.equal(path[0], 'client-created-root');
   assert.equal(result.data.mapping[path[2]].message.content.content_type, 'user_editable_context');
-  // The first kept prompt is exactly the 51st prompt.
-  assert.equal(path[3], ids.prompts[50]);
+  // Then the (hidden) previous answer, then exactly the 51st prompt.
+  assert.equal(path[3], ids.answers[49]);
+  assert.equal(path[4], ids.prompts[50]);
   // Other fields are untouched.
   assert.equal(result.data.title, data.title);
   assert.equal(result.data.current_node, data.current_node);
+});
+
+test('the first kept prompt keeps its real parent, so editing it branches from the right place', () => {
+  const { data, ids } = makeConversation({ exchanges: 40 });
+  const input = clone(data);
+  const result = core.trimConversation(input, 10);
+  const firstPrompt = result.data.mapping[ids.prompts[35]];
+  // ChatGPT sends this node's `parent` as parent_message_id when the prompt is edited.
+  assert.equal(firstPrompt.parent, data.mapping[ids.prompts[35]].parent);
+  assert.equal(firstPrompt.parent, ids.answers[34]);
+  const parent = result.data.mapping[firstPrompt.parent];
+  assert.equal(parent.message.metadata.is_visually_hidden_from_conversation, true, 'the parent is kept but not shown');
+  assert.equal(input.mapping[ids.answers[34]].message.metadata.is_visually_hidden_from_conversation, undefined, 'input not mutated');
+  assert.equal(visibleTurns(result.data).length, 10);
+  assert.equal(visibleTurns(result.data)[0].role, 'user');
 });
 
 test('keeps branches below the cut (version switcher) and drops ones above it', () => {
@@ -264,6 +280,11 @@ test('hook: paged loader pauses older pages past the budget and resumes on reque
   // One older page is allowed (10 < 20)...
   current = await (await env.win.fetch(`${base}/messages?before=${current.page_info.start_cursor}&num_turns=5`)).json();
   assert.equal(env.reports().at(-1).kept, 20);
+
+  // ChatGPT re-requests the newest page every few seconds: older pages must not be forgotten.
+  await (await env.win.fetch(`${base}?include_has_versions=true&num_turns=5`)).json();
+  assert.equal(env.reports().at(-1).kept, 20);
+  assert.equal(env.reports().at(-1).hasMore, true);
 
   // ...the next one is parked until the user asks for more.
   const callsBefore = env.calls.length;

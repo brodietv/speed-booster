@@ -2,9 +2,10 @@
  * Speed Booster — ChatGPT DOM adapter. Every selector lives here, each with
  * fallbacks, so a ChatGPT redesign means updating one file.
  *
- * Current ChatGPT (2026) wraps each turn in div[data-turn-id-container] and
- * virtualizes: off-screen turns are empty placeholders, so anything that needs
- * the full list of prompts uses the network layer's report, not the DOM.
+ * Current ChatGPT (2026) wraps each turn in div[data-turn-id-container] (the
+ * mounted <section> repeats the attribute) and virtualizes: off-screen turns are
+ * empty placeholders — or absent entirely — so anything that needs the full list
+ * of prompts uses the network layer's report, not the DOM.
  */
 (() => {
   'use strict';
@@ -24,7 +25,8 @@
       'form [contenteditable="true"][role="textbox"]',
       'main form textarea',
     ],
-    send: ['[data-testid="send-button"]', 'button#composer-submit-button', 'form[data-type="unified-composer"] button[type="submit"]'],
+    // #composer-submit-button changes role (voice/send/stop); only this test id means "send".
+    send: '[data-testid="send-button"]',
     stop: '[data-testid="stop-button"]',
   };
 
@@ -33,6 +35,17 @@
 
   function messages(root) {
     return Array.from((root || document).querySelectorAll(S.message));
+  }
+
+  /** Outermost turn wrapper for an element (the mounted section repeats the container attribute). */
+  function outerContainer(el) {
+    let top = el.closest(S.container);
+    let next = top && top.parentElement ? top.parentElement.closest(S.container) : null;
+    while (next) {
+      top = next;
+      next = top.parentElement ? top.parentElement.closest(S.container) : null;
+    }
+    return top;
   }
 
   function roleOf(el) {
@@ -60,7 +73,9 @@
   /** Turns in document order: [{ el, role, id }]. role is null for virtualized placeholders. */
   function turns() {
     let list = Array.from(document.querySelectorAll(S.container)).filter(
-      (el) => !isRootPlaceholder(el.getAttribute('data-turn-id-container'))
+      (el) =>
+        !isRootPlaceholder(el.getAttribute('data-turn-id-container')) &&
+        (!el.parentElement || !el.parentElement.closest(S.container))
     );
     if (!list.length) {
       list = Array.from(document.querySelectorAll(S.turn)).filter(
@@ -79,28 +94,41 @@
   function findTurn(id) {
     if (!id) return null;
     const esc = CSS.escape(id);
-    const container = document.querySelector(`[data-turn-id-container="${esc}"]`);
-    if (container) return container;
-    const turn = document.querySelector(`[data-turn-id="${esc}"]`);
-    if (turn) return turn.closest(S.container) || turn;
-    const msg = document.querySelector(`[data-message-id="${esc}"]`);
-    if (msg) return msg.closest(`${S.container}, ${S.turn}, article, section`) || msg;
-    return null;
+    const hit =
+      document.querySelector(`[data-turn-id-container="${esc}"]`) ||
+      document.querySelector(`[data-turn-id="${esc}"]`) ||
+      document.querySelector(`[data-message-id="${esc}"]`);
+    if (!hit) return null;
+    return outerContainer(hit) || hit.closest(`${S.turn}, article, section`) || hit;
   }
 
-  /** Every user turn currently in the page (rendered or placeholder), in order. */
-  function promptAnchors() {
-    const found = new Set();
-    for (const t of turns()) if (t.role === 'user') found.add(t.el);
+  /** Id of a rendered user turn (user turn ids equal their message ids). */
+  function promptIdOf(turn) {
+    const msg = turn.el.matches(S.message) ? turn.el : turn.el.querySelector('[data-message-author-role="user"]');
+    return (msg && msg.getAttribute('data-message-id')) || turn.id;
+  }
+
+  /** Ids of every loaded prompt in conversation order: the network report, then prompts only in the DOM. */
+  function promptOrder() {
     const report = SB.util.currentReport();
-    if (report) {
-      for (const p of report.prompts) {
-        if (p.hidden) continue;
-        const el = findTurn(p.id);
-        if (el) found.add(el);
+    const ids = report ? report.prompts.filter((p) => !p.hidden && p.id).map((p) => p.id) : [];
+    const known = new Set(ids);
+    for (const t of turns()) {
+      if (t.role !== 'user') continue;
+      const id = promptIdOf(t);
+      if (id && !known.has(id)) {
+        known.add(id);
+        ids.push(id);
       }
     }
-    return Array.from(found).sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+    return ids;
+  }
+
+  /** Rendered user turns right now: [{ id, el }] in document order. */
+  function mountedPrompts() {
+    return turns()
+      .filter((t) => t.role === 'user')
+      .map((t) => ({ id: promptIdOf(t), el: t.el }));
   }
 
   function scrollable(el) {
@@ -120,6 +148,12 @@
       el = el.parentElement;
     }
     return document.scrollingElement || document.documentElement;
+  }
+
+  /** Top edge of the scrolling viewport, in client coordinates. */
+  function viewportTop() {
+    const el = scroller();
+    return el === document.scrollingElement || el === document.documentElement ? 0 : el.getBoundingClientRect().top;
   }
 
   function composer() {
@@ -145,20 +179,16 @@
     return target.innerText.replace(/\n$/, '');
   }
 
-  function escapeHtml(text) {
-    return text.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-  }
-
-  function caretToEnd(el) {
+  function select(el, collapseToEnd) {
     const range = document.createRange();
     range.selectNodeContents(el);
-    range.collapse(false);
+    if (collapseToEnd) range.collapse(false);
     const selection = window.getSelection();
     selection.removeAllRanges();
     selection.addRange(range);
   }
 
-  /** Replace the composer's content (works with ProseMirror and plain textareas). */
+  /** Last-resort write: paragraphs built from text nodes, then let the editor pick up the mutation. */
   function setComposer(el, text) {
     if (el.tagName === 'TEXTAREA') {
       const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
@@ -167,12 +197,15 @@
       el.setSelectionRange(text.length, text.length);
       return;
     }
-    el.innerHTML = text
-      .split('\n')
-      .map((line) => `<p>${escapeHtml(line) || '<br>'}</p>`)
-      .join('');
+    const blocks = text.split('\n').map((line) => {
+      const p = document.createElement('p');
+      if (line) p.textContent = line;
+      else p.appendChild(document.createElement('br'));
+      return p;
+    });
+    el.replaceChildren(...blocks);
     el.dispatchEvent(new Event('input', { bubbles: true }));
-    caretToEnd(el);
+    select(el, true);
   }
 
   let savedCaret = null;
@@ -187,7 +220,13 @@
         : null;
   }
 
-  /** Insert text into the composer: fills an empty composer, otherwise inserts at the caret. */
+  const squash = (text) => String(text).replace(/\s+/g, ' ').trim();
+
+  /**
+   * Insert text into the composer — replacing it when empty, otherwise at the caret.
+   * Tries what ProseMirror handles natively first (paste, then a native editing
+   * command), checking the result each time, and only then rewrites the DOM.
+   */
   function insert(text, options) {
     const el = composer();
     if (!el) return false;
@@ -195,38 +234,51 @@
     savedCaret = null;
     el.focus();
     const current = composerText(el);
-    if ((options && options.replace) || !current.trim()) {
-      setComposer(el, text);
-      return true;
-    }
+    const replace = (options && options.replace) || !current.trim();
+
     if (el.tagName === 'TEXTAREA') {
-      const start = el.selectionStart != null ? el.selectionStart : current.length;
-      const end = el.selectionEnd != null ? el.selectionEnd : current.length;
-      setComposer(el, current.slice(0, start) + text + current.slice(end));
-      el.setSelectionRange(start + text.length, start + text.length);
+      if (replace) {
+        setComposer(el, text);
+      } else {
+        const start = el.selectionStart != null ? el.selectionStart : current.length;
+        const end = el.selectionEnd != null ? el.selectionEnd : current.length;
+        setComposer(el, current.slice(0, start) + text + current.slice(end));
+        el.setSelectionRange(start + text.length, start + text.length);
+      }
       return true;
     }
-    const selection = window.getSelection();
-    if (caret && el.contains(caret.startContainer)) {
-      selection.removeAllRanges();
-      selection.addRange(caret);
-    } else {
-      caretToEnd(el);
+
+    const place = () => {
+      if (replace) select(el, false);
+      else if (caret && el.contains(caret.startContainer)) {
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(caret);
+      } else select(el, true);
+    };
+    const probe = squash(text).slice(0, 80);
+    const landed = () => {
+      const now = squash(composerText(el));
+      return now.includes(probe) && (replace || now.length > squash(current).length);
+    };
+
+    place();
+    // Very long pastes become file attachments in ChatGPT, so only paste normal-sized prompts.
+    if (text.length < 2500) {
+      const data = new DataTransfer();
+      data.setData('text/plain', text);
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+      if (landed()) return true;
+      place();
     }
-    const data = new DataTransfer();
-    data.setData('text/plain', text);
-    const handled = !el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
-    if (handled || document.execCommand('insertText', false, text)) return true;
-    setComposer(el, current + '\n\n' + text);
+    if (document.execCommand('insertText', false, text) && landed()) return true;
+    setComposer(el, replace ? text : current + '\n\n' + text);
     return true;
   }
 
   function sendButton() {
-    for (const selector of S.send) {
-      const el = document.querySelector(selector);
-      if (el && visible(el)) return el;
-    }
-    return null;
+    const el = document.querySelector(S.send);
+    return el && visible(el) ? el : null;
   }
 
   /** Click send once ChatGPT has enabled the button (it updates asynchronously after input). */
@@ -266,10 +318,12 @@
     messages,
     turns,
     findTurn,
-    promptAnchors,
+    promptOrder,
+    mountedPrompts,
     isVirtualized,
     roleOf,
     scroller,
+    viewportTop,
     composer,
     composerText,
     rememberCaret,

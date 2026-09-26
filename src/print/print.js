@@ -16,7 +16,7 @@
   for (const style of doc.head.querySelectorAll('style')) document.head.appendChild(style);
   document.getElementById('content').replaceChildren(...doc.body.childNodes);
   document.title = job.title || doc.title || 'ChatGPT conversation';
-  title.innerHTML = '';
+  title.replaceChildren();
   title.append(document.title, Object.assign(document.createElement('span'), { className: 'hint', textContent: '  ·  choose “Save as PDF” as the destination' }));
 
   button.disabled = false;

@@ -148,13 +148,21 @@
     const source = data.mapping;
     const cutId = path[turns[first].index];
     const prefix = path.slice(0, turns[0].index);
+    // The first kept prompt keeps its real parent (as a hidden node): editing that
+    // prompt sends its parent as parent_message_id, so it must not point at the root.
+    const parentId = source[cutId].parent;
+    const chain = parentId && source[parentId] && !prefix.includes(parentId) ? prefix.concat(parentId) : prefix;
     const mapping = {};
 
-    for (let i = 0; i < prefix.length; i++) {
-      const next = i + 1 < prefix.length ? prefix[i + 1] : cutId;
-      const node = Object.assign({}, source[prefix[i]], { children: [next] });
-      if (i > 0) node.parent = prefix[i - 1];
-      mapping[prefix[i]] = node;
+    for (let i = 0; i < chain.length; i++) {
+      const next = i + 1 < chain.length ? chain[i + 1] : cutId;
+      const node = Object.assign({}, source[chain[i]], { children: [next] });
+      if (i > 0) node.parent = chain[i - 1];
+      if (chain[i] === parentId && node.message) {
+        const metadata = Object.assign({}, node.message.metadata, { is_visually_hidden_from_conversation: true });
+        node.message = Object.assign({}, node.message, { metadata });
+      }
+      mapping[chain[i]] = node;
     }
 
     const stack = [cutId];
@@ -163,8 +171,8 @@
       if (mapping[id] || !source[id]) continue;
       const node = source[id];
       mapping[id] =
-        id === cutId
-          ? Object.assign({}, node, { parent: prefix.length ? prefix[prefix.length - 1] : null })
+        id === cutId && chain[chain.length - 1] !== parentId
+          ? Object.assign({}, node, { parent: chain.length ? chain[chain.length - 1] : null })
           : node;
       const children = node.children || [];
       for (let c = 0; c < children.length; c++) stack.push(children[c]);
@@ -288,7 +296,7 @@
     function stateFor(id) {
       let state = conversations.get(id);
       if (!state) {
-        state = { id, tree: null, pages: new Map(), held: [], loaded: 0, hasMore: false, navigation, messages: [] };
+        state = { id, tree: null, seen: new Map(), held: [], loaded: 0, hasMore: false, navigation, messages: [] };
         conversations.set(id, state);
       }
       return state;
@@ -327,11 +335,13 @@
       return n > 0 ? n : DEFAULT_KEEP;
     }
 
-    /** Deep links and temporary chats always get the untouched conversation. */
+    /** Deep links, exact-message requests and temporary chats always get the untouched conversation. */
     function bypass(requestUrl) {
       const page = new win.URLSearchParams(win.location.search);
       if (page.has('message') || page.has('messageId') || page.get('temporary-chat') === 'true') return true;
-      return !!requestUrl && requestUrl.searchParams.get('include_full_conversation') === 'true';
+      if (!requestUrl) return false;
+      const params = requestUrl.searchParams;
+      return params.has('include_message_id') || /^(true|1)$/i.test(params.get('include_full_conversation') || '');
     }
 
     function post(type, payload) {
@@ -453,7 +463,9 @@
         if (!state.tree || state.tree.fingerprint !== print || state.tree.keep !== keep) {
           const data = JSON.parse(text);
           if (!isConversation(data)) return response;
-          const result = trimConversation(data, keep);
+          // Pages already stitched into a tree by ChatGPT are small by construction.
+          const stitched = data.__paginatedConversationPage || Object.keys(data.mapping).some((id) => id.startsWith('paginated-root'));
+          const result = trimConversation(data, stitched ? Infinity : keep);
           state.tree = {
             fingerprint: print,
             keep,
@@ -482,26 +494,21 @@
         if (!messages) return response;
         const state = stateFor(info.conversationId);
         const older = info.kind === 'older';
-        if (!older && state.navigation !== navigation) {
-          // Fresh open of this chat (not a background refresh): start counting again.
-          state.pages.clear();
+        const fresh = !older && (state.navigation !== navigation || !state.seen.size);
+        if (fresh) {
+          // Fresh open of this chat (not a background refresh): start counting again,
+          // and let go of requests parked by a previous visit.
+          state.seen.clear();
           state.navigation = navigation;
+          for (const entry of state.held.splice(0)) entry.cancel();
         }
-        const key = older ? 'before:' + (info.url.searchParams.get('before') || '') : 'newest';
-        state.pages.set(key, messages);
+        // Accumulate: the newest page is re-requested every few seconds and its window
+        // slides as the chat grows, so messages are merged rather than replaced.
+        for (const m of messages) state.seen.set(m.id || JSON.stringify(m).slice(0, 80), m);
         const pageHasMore = !!(data.page_info && data.page_info.has_previous_page);
-        if (older || state.pages.size === 1) state.hasMore = pageHasMore;
+        if (older || fresh) state.hasMore = pageHasMore;
 
-        const seen = new Set();
-        const all = [];
-        for (const list of state.pages.values()) {
-          for (const m of list) {
-            const id = m.id || JSON.stringify(m).slice(0, 80);
-            if (seen.has(id)) continue;
-            seen.add(id);
-            all.push(m);
-          }
-        }
+        const all = Array.from(state.seen.values());
         all.sort((a, b) => (a.create_time || 0) - (b.create_time || 0));
         state.messages = all;
         state.loaded = turnStarts(all).length;
@@ -541,6 +548,9 @@
               .call(win, input, init)
               .then((response) => route(response, info))
               .then(resolve, reject);
+          },
+          cancel() {
+            reject(abortError(signal));
           },
         };
         if (signal) {

@@ -4,7 +4,9 @@
  * grouped and marked up (2026 markup, optionally virtualized), and a
  * ProseMirror-like composer that syncs from DOM mutations and handles paste.
  *
- * Query params: layout=virtual|classic, api=tree|paged|hidden
+ * Query params: layout=virtual|window|classic, api=tree|paged|hidden
+ *   virtual — every turn keeps a wrapper; off-screen ones are empty placeholders
+ *   window  — only turns near the viewport exist in the DOM at all (spacers elsewhere)
  */
 (function () {
   'use strict';
@@ -64,6 +66,8 @@
     section.setAttribute('data-testid', 'conversation-turn-' + n);
     section.setAttribute('data-turn', turn.role);
     section.setAttribute('data-turn-id', turn.id);
+    // Like ChatGPT, the mounted section repeats its wrapper's container attribute.
+    if (layout !== 'classic') section.setAttribute('data-turn-id-container', turn.id);
     const wrap = document.createElement('div');
     wrap.className = 'text-base [--thread-content-max-width:48rem]';
     const inner = document.createElement('div');
@@ -108,12 +112,46 @@
     return box;
   }
 
+  /* ---- Windowed virtualization: off-screen turns are not in the DOM at all ---- */
+  const WINDOW_H = 220;
+  let windowTurns = [];
+  function renderWindow(force) {
+    const total = windowTurns.length;
+    const start = Math.max(0, Math.floor(scroller.scrollTop / WINDOW_H) - 2);
+    const end = Math.min(total, Math.ceil((scroller.scrollTop + scroller.clientHeight) / WINDOW_H) + 2);
+    if (!force && start === state.windowStart && end === state.windowEnd) return;
+    state.windowStart = start;
+    state.windowEnd = end;
+    const top = document.createElement('div');
+    top.style.height = start * WINDOW_H + 'px';
+    const bottom = document.createElement('div');
+    bottom.style.height = (total - end) * WINDOW_H + 'px';
+    const nodes = [top];
+    for (let i = start; i < end; i++) {
+      const box = document.createElement('div');
+      box.setAttribute('data-turn-id-container', windowTurns[i].id);
+      box.style.height = WINDOW_H + 'px';
+      box.style.overflow = 'hidden';
+      box.appendChild(turnContent(windowTurns[i], i));
+      nodes.push(box);
+    }
+    nodes.push(bottom);
+    thread.replaceChildren(...nodes);
+  }
+  scroller.addEventListener('scroll', () => layout === 'window' && renderWindow(false));
+
   const sentinel = document.createElement('div');
   sentinel.setAttribute('data-testid', 'conversation-pagination-sentinel');
   sentinel.style.height = '1px';
 
   function render() {
     const turns = groupTurns(state.messages);
+    if (layout === 'window') {
+      windowTurns = turns;
+      state.renderedTurns = turns.length;
+      renderWindow(true);
+      return;
+    }
     const nodes = [];
     if (api === 'paged') nodes.push(sentinel);
     if (layout === 'virtual') {
@@ -131,6 +169,7 @@
 
   function scrollToBottom() {
     scroller.scrollTop = scroller.scrollHeight;
+    if (layout === 'window') renderWindow(false);
   }
 
   function linear(data) {

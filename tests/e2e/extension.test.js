@@ -40,12 +40,6 @@ async function until(page, fn, arg, timeout) {
   throw new Error(`Timed out waiting for: ${fn}`);
 }
 
-async function scrollToTop(page) {
-  await page.evaluate(() => {
-    document.querySelector('[data-scroll-root]').scrollTop = 0;
-  });
-}
-
 /** Scroll up until the "older messages" pill shows (the app may still be pinning to the bottom). */
 async function showPill(page, text) {
   await until(page, (expected) => {
@@ -101,7 +95,7 @@ test('paged loader: older pages load up to the budget, then pause; "Load more" r
   const olderRequests = () => env.requests.filter((r) => r.path.endsWith('/messages')).length;
 
   // Scroll up: ChatGPT fetches older pages until 30+ messages are loaded, then Speed Booster pauses it.
-  const pill = await showPill(page, 'Older messages paused for speed');
+  await showPill(page, 'Older messages paused for speed');
   await sleep(300);
   assert.equal(await turns(page), 36);
   assert.equal(olderRequests(), 2, 'the third older page is paused before it hits the network');
@@ -142,6 +136,37 @@ test('outline lists all 200 prompts and jumps to visible and hidden ones', async
   assert.ok(await inView(page, env.ids.prompts[99]));
 
   await page.keyboard.press('Escape');
+  await page.close();
+});
+
+test('fully virtualized layout: outline and Alt+↑/↓ reach prompts that are not in the page', async () => {
+  const page = await env.openChat('layout=window&api=tree');
+  assert.equal(await turns(page), 30);
+  const landed = (id) =>
+    until(page, (turnId) => {
+      const el = document.querySelector(`[data-turn-id-container="${turnId}"]`);
+      const r = el && el.getBoundingClientRect();
+      return r && r.top > -120 && r.top < innerHeight * 0.6;
+    }, id);
+  const first = env.ids.prompts[185];
+  assert.equal(
+    await page.evaluate((id) => !!document.querySelector(`[data-turn-id-container="${id}"]`), first),
+    false,
+    'the first loaded prompt starts out of the DOM'
+  );
+
+  await page.keyboard.press('Alt+j');
+  await page.locator(ui('.outline .item:not(.is-hidden)')).first().click();
+  await landed(first);
+  await page.keyboard.press('Escape');
+
+  await page.keyboard.press('Alt+ArrowDown');
+  await landed(env.ids.prompts[186]);
+  await page.keyboard.press('Alt+ArrowDown');
+  await landed(env.ids.prompts[187]);
+  await page.keyboard.press('Alt+ArrowUp');
+  await landed(env.ids.prompts[186]);
+  assert.deepEqual(page.errors, []);
   await page.close();
 });
 
@@ -348,14 +373,13 @@ test('popup: settings switches write to storage', async () => {
 
 test('popup ↔ page protocol: live status and load more', async () => {
   const page = await env.openChat('layout=virtual&api=tree');
-  let status = null;
-  for (let i = 0; i < 50 && !(status && status.total === 400); i++) {
-    status = await env.worker.evaluate(async () => {
-      const [tab] = await chrome.tabs.query({ url: 'https://chatgpt.com/*' });
-      return chrome.tabs.sendMessage(tab.id, { type: 'sb:status' });
-    });
-    await sleep(100);
-  }
+  // Mounted sections repeat their wrapper's container attribute; they must not be counted twice.
+  await until(page, () => document.querySelectorAll('section[data-turn-id-container]').length >= 3);
+  await sleep(800); // let a refresh run with the mounted sections in place
+  const status = await env.worker.evaluate(async () => {
+    const [tab] = await chrome.tabs.query({ url: 'https://chatgpt.com/*' });
+    return chrome.tabs.sendMessage(tab.id, { type: 'sb:status' });
+  });
   assert.equal(status.ok, true);
   assert.equal(status.mode, 'tree');
   assert.equal(status.total, 400);

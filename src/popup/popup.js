@@ -42,7 +42,8 @@
   function setCard(html) {
     if (html === cardHtml) return;
     cardHtml = html;
-    card.innerHTML = html;
+    const doc = new DOMParser().parseFromString(`<body>${html}</body>`, 'text/html');
+    card.replaceChildren(...doc.body.childNodes);
   }
 
   card.addEventListener('click', async (event) => {
