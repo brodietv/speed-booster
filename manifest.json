@@ -1,0 +1,64 @@
+{
+  "manifest_version": 3,
+  "name": "Speed Booster for ChatGPT",
+  "short_name": "Speed Booster",
+  "version": "2.0.0",
+  "description": "Instant long ChatGPT chats, plus wide mode, outline & full-chat search, prompt library, PDF/Markdown export, timestamps and shortcuts.",
+  "minimum_chrome_version": "111",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "Speed Booster",
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
+  },
+  "options_ui": {
+    "page": "src/options/options.html",
+    "open_in_tab": true
+  },
+  "background": {
+    "service_worker": "src/background/background.js"
+  },
+  "permissions": ["storage"],
+  "host_permissions": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
+      "js": ["src/inject/interceptor.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
+      "js": [
+        "src/shared/settings.js",
+        "src/shared/markdown.js",
+        "src/shared/format.js",
+        "src/shared/prompts.js",
+        "src/content/core.js",
+        "src/content/bridge.js",
+        "src/content/chatgpt.js",
+        "src/content/page-style.js",
+        "src/content/ui.js",
+        "src/content/actions.js",
+        "src/content/speed.js",
+        "src/content/exporter.js",
+        "src/content/timestamps.js",
+        "src/content/counter.js",
+        "src/content/outline.js",
+        "src/content/palette.js",
+        "src/content/dock.js",
+        "src/content/shortcuts.js",
+        "src/content/main.js"
+      ],
+      "run_at": "document_start"
+    }
+  ]
+}

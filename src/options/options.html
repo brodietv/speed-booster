@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Speed Booster settings</title>
+    <link rel="stylesheet" href="../ui/common.css" />
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="hero">
+        <img src="../../icons/icon-128.png" alt="" width="48" height="48" />
+        <div>
+          <h1>Speed Booster for ChatGPT</h1>
+          <p>Instant long chats, and a better ChatGPT. <span id="version"></span></p>
+        </div>
+      </header>
+
+      <section id="welcome-banner" class="welcome" hidden>
+        <div>
+          <h2>You're all set 🎉</h2>
+          <p>
+            Open ChatGPT — long chats now load instantly. Look for the <b>⚡ dock</b> on the right, or press
+            <kbd data-key="K"></kbd> for the command palette and <kbd data-key="P"></kbd> for your prompt library.
+          </p>
+        </div>
+        <a class="btn primary" href="https://chatgpt.com/" target="_blank" rel="noopener">Open ChatGPT</a>
+      </section>
+
+      <nav class="tabs" role="tablist">
+        <a href="#settings" role="tab" data-tab="settings">Settings</a>
+        <a href="#prompts" role="tab" data-tab="prompts">Prompt library</a>
+        <a href="#shortcuts" role="tab" data-tab="shortcuts">Shortcuts</a>
+        <a href="#about" role="tab" data-tab="about">Privacy &amp; help</a>
+      </nav>
+
+      <main>
+        <!-- Settings -->
+        <section class="panel" id="panel-settings" data-panel="settings">
+          <div class="card">
+            <div class="setting">
+              <div class="label"><b>Speed Booster</b><small>Turn every feature on or off at once</small></div>
+              <label class="switch"><input type="checkbox" data-setting="enabled" aria-label="Speed Booster enabled" /><span></span></label>
+            </div>
+          </div>
+
+          <div class="card" data-requires="enabled">
+            <h2>Speed</h2>
+            <div class="setting">
+              <div class="label">
+                <b>Speed mode</b>
+                <small>Long chats render only their latest messages, so they open instantly and stay smooth. ChatGPT still remembers the whole conversation.</small>
+              </div>
+              <label class="switch"><input type="checkbox" data-setting="trimEnabled" aria-label="Speed mode" /><span></span></label>
+            </div>
+            <div class="setting stacked" data-requires="trimEnabled">
+              <div class="head">
+                <b>Keep the last</b>
+                <span class="inline-number"><input type="number" min="2" max="500" data-setting="keepMessages" aria-label="Messages to keep" /> messages</span>
+              </div>
+              <input type="range" min="2" max="200" step="1" data-setting="keepMessages" aria-label="Messages to keep" />
+              <small class="help">Lower is faster. Older messages are one click away (“Load more”) and still searchable.</small>
+            </div>
+            <div class="setting" data-requires="trimEnabled">
+              <div class="label"><b>“Load more” adds</b><small>How many older messages each click brings back</small></div>
+              <span class="inline-number"><input type="number" min="5" max="500" data-setting="loadMoreStep" aria-label="Load more step" /> messages</span>
+            </div>
+            <div class="setting">
+              <div class="label">
+                <b>Render boost</b>
+                <small>Skips drawing off-screen messages on ChatGPT layouts that don't already virtualize them.</small>
+              </div>
+              <label class="switch"><input type="checkbox" data-setting="renderBoost" aria-label="Render boost" /><span></span></label>
+            </div>
+          </div>
+
+          <div class="card" data-requires="enabled">
+            <h2>Reading</h2>
+            <div class="setting">
+              <div class="label"><b>Wide mode</b><small>Use more of your screen for the conversation</small></div>
+              <label class="switch"><input type="checkbox" data-setting="wideMode" aria-label="Wide mode" /><span></span></label>
+            </div>
+            <div class="setting stacked" data-requires="wideMode">
+              <div class="head"><b>Chat width</b><output data-for="chatWidth" data-format="width"></output></div>
+              <input type="range" min="720" max="2000" step="40" data-setting="chatWidth" aria-label="Chat width" />
+            </div>
+            <div class="setting">
+              <div class="label"><b>Timestamps &amp; model badges</b><small>Shows when each message was sent and which model answered</small></div>
+              <label class="switch"><input type="checkbox" data-setting="timestamps" aria-label="Timestamps" /><span></span></label>
+            </div>
+            <div class="setting">
+              <div class="label"><b>Word &amp; token counter</b><small>Live estimate while you type</small></div>
+              <label class="switch"><input type="checkbox" data-setting="tokenCounter" aria-label="Token counter" /><span></span></label>
+            </div>
+          </div>
+
+          <div class="card" data-requires="enabled">
+            <h2>Interface</h2>
+            <div class="setting">
+              <div class="label"><b>Dock</b><small>The floating ⚡ toolbar on ChatGPT</small></div>
+              <select data-setting="dockPosition" aria-label="Dock position">
+                <option value="right">Right side</option>
+                <option value="left">Left side</option>
+                <option value="hidden">Hidden (use shortcuts)</option>
+              </select>
+            </div>
+            <div class="setting">
+              <div class="label"><b>Keyboard shortcuts</b><small>See the Shortcuts tab for the full list</small></div>
+              <label class="switch"><input type="checkbox" data-setting="shortcuts" aria-label="Keyboard shortcuts" /><span></span></label>
+            </div>
+          </div>
+
+          <div class="card subtle">
+            <div class="setting">
+              <div class="label"><b>Reset settings</b><small>Restores every setting to its default. Your prompts are kept.</small></div>
+              <button class="btn danger" id="reset-settings">Reset</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Prompt library -->
+        <section class="panel" id="panel-prompts" data-panel="prompts" hidden>
+          <div class="toolbar">
+            <input type="search" id="prompt-search" placeholder="Search prompts…" aria-label="Search prompts" />
+            <button class="btn primary" id="prompt-new">New prompt</button>
+            <button class="btn" id="prompt-import">Import</button>
+            <button class="btn" id="prompt-export">Export</button>
+            <input type="file" id="prompt-file" accept=".json,application/json" hidden />
+          </div>
+          <p class="help">
+            Insert prompts on ChatGPT with <kbd data-key="P"></kbd>. Write <code>{{name}}</code> for a blank you fill in each time
+            (<code>{{language:Spanish}}</code> sets a default). <code>{{selection}}</code>, <code>{{date}}</code> and <code>{{time}}</code> fill themselves in.
+          </p>
+          <div id="prompt-list" class="prompt-list"></div>
+          <p class="footer-actions"><button class="btn small" id="prompt-restore">Restore starter prompts</button></p>
+        </section>
+
+        <!-- Shortcuts -->
+        <section class="panel" id="panel-shortcuts" data-panel="shortcuts" hidden>
+          <div class="card">
+            <h2>Keyboard shortcuts</h2>
+            <table class="keys">
+              <tbody>
+                <tr><td><kbd data-key="K"></kbd></td><td>Command palette — every action and prompt</td></tr>
+                <tr><td><kbd data-key="P"></kbd></td><td>Prompt library</td></tr>
+                <tr><td><kbd data-key="J"></kbd></td><td>Outline &amp; whole-chat search</td></tr>
+                <tr><td><kbd data-key="W"></kbd></td><td>Toggle wide mode</td></tr>
+                <tr><td><kbd data-key="↑"></kbd> <kbd data-key="↓"></kbd></td><td>Jump to the previous / next prompt</td></tr>
+                <tr><td><kbd data-mod="↵"></kbd></td><td>In the palette: insert a prompt and send it</td></tr>
+                <tr><td><kbd>Esc</kbd></td><td>Close panels</td></tr>
+              </tbody>
+            </table>
+            <p class="help">
+              Shortcuts use the physical key, so they work on any keyboard layout, and avoid ChatGPT's own shortcuts and browser menus.
+              <span id="mac-note" hidden>On a Mac, ⌥↑ / ⌥↓ only jump when the message box is empty, so text editing keeps working.</span>
+            </p>
+          </div>
+        </section>
+
+        <!-- About -->
+        <section class="panel" id="panel-about" data-panel="about" hidden>
+          <div class="card prose">
+            <h2>Privacy</h2>
+            <p>
+              <b>Speed Booster never sends your data anywhere.</b> There are no analytics, no accounts, no ads and no remote code.
+              Settings and prompts are stored only in your browser. The only network requests it makes go to chatgpt.com, from your own
+              browser tab and signed in as you — the same requests ChatGPT itself makes (for example to export a chat).
+            </p>
+            <h2>How speed mode works</h2>
+            <p>
+              ChatGPT downloads a whole conversation and builds every message on the page, which is what makes long chats crawl.
+              Speed Booster steps in before that happens and hands ChatGPT only the most recent messages. With ChatGPT's newer
+              page-by-page loading, it pauses older pages once you have enough on screen. Older messages are one click away with
+              <b>Load more</b>, the outline lists every prompt, and search covers the entire chat.
+            </p>
+            <h2>Questions</h2>
+            <details>
+              <summary>Does ChatGPT forget the hidden messages?</summary>
+              <p>No. Trimming only changes what your browser shows. The full conversation stays on OpenAI's servers and the model still sees all of it.</p>
+            </details>
+            <details>
+              <summary>Why do exports include hidden messages?</summary>
+              <p>Exports fetch the complete conversation fresh from ChatGPT, so nothing is left out — even messages that were never loaded.</p>
+            </details>
+            <details>
+              <summary>Something looks broken after a ChatGPT update.</summary>
+              <p>
+                Turn Speed Booster off with the switch in the toolbar popup to get stock ChatGPT back instantly, and check for an update.
+                Every feature is designed to fail safe, so ChatGPT keeps working even if a feature stops.
+              </p>
+            </details>
+            <details>
+              <summary>How accurate is the token count?</summary>
+              <p>It's an estimate (about 4 characters per token for English). Use it to spot chats that are getting long enough for ChatGPT to lose early details.</p>
+            </details>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="prompt-dialog">
+      <form method="dialog" id="prompt-form">
+        <h2 id="prompt-dialog-title">New prompt</h2>
+        <label class="field">
+          <span>Title</span>
+          <input type="text" id="prompt-title" maxlength="120" placeholder="e.g. Weekly status report" />
+        </label>
+        <label class="field">
+          <span>Prompt</span>
+          <textarea id="prompt-body" rows="10" placeholder="Write your prompt. Use {{topic}} for blanks you fill in each time."></textarea>
+        </label>
+        <p class="vars" id="prompt-vars"></p>
+        <div class="dialog-actions">
+          <button type="button" class="btn danger" id="prompt-delete">Delete</button>
+          <span class="spacer"></span>
+          <button type="button" class="btn" id="prompt-cancel">Cancel</button>
+          <button type="submit" class="btn primary" id="prompt-save">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" hidden></div>
+
+    <script src="../shared/settings.js"></script>
+    <script src="../shared/prompts.js"></script>
+    <script src="../ui/settings-form.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>

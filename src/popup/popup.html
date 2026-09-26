@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Speed Booster</title>
+    <link rel="stylesheet" href="../ui/common.css" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="top">
+      <img src="../../icons/icon-48.png" alt="" width="30" height="30" />
+      <div class="brand">
+        <strong>Speed Booster</strong>
+        <span id="version"></span>
+      </div>
+      <label class="switch" title="Turn Speed Booster on or off">
+        <input type="checkbox" data-setting="enabled" aria-label="Speed Booster enabled" />
+        <span></span>
+      </label>
+    </header>
+
+    <section id="chat" class="card" aria-live="polite">
+      <div class="empty">Loading…</div>
+    </section>
+
+    <div id="reload-hint" class="hint" hidden>
+      <span>Reload ChatGPT to apply the new message limit.</span>
+      <button class="btn small primary" id="reload-apply">Reload</button>
+    </div>
+
+    <main data-requires="enabled">
+      <section class="group">
+        <h2>Speed</h2>
+        <div class="setting">
+          <div class="label"><b>Speed mode</b><small>Render only the latest messages</small></div>
+          <label class="switch"><input type="checkbox" data-setting="trimEnabled" aria-label="Speed mode" /><span></span></label>
+        </div>
+        <div class="setting stacked" data-requires="trimEnabled">
+          <div class="head">
+            <b>Keep last</b>
+            <output data-for="keepMessages" data-format="messages"></output>
+          </div>
+          <input type="range" min="2" max="200" step="1" data-setting="keepMessages" aria-label="Messages to keep" />
+        </div>
+      </section>
+
+      <section class="group">
+        <h2>Reading</h2>
+        <div class="setting">
+          <div class="label"><b>Wide mode</b><small>Use more of your screen</small></div>
+          <label class="switch"><input type="checkbox" data-setting="wideMode" aria-label="Wide mode" /><span></span></label>
+        </div>
+        <div class="setting stacked" data-requires="wideMode">
+          <div class="head">
+            <b>Chat width</b>
+            <output data-for="chatWidth" data-format="width"></output>
+          </div>
+          <input type="range" min="720" max="2000" step="40" data-setting="chatWidth" aria-label="Chat width" />
+        </div>
+        <div class="setting">
+          <div class="label"><b>Timestamps &amp; model</b><small>When each message was sent</small></div>
+          <label class="switch"><input type="checkbox" data-setting="timestamps" aria-label="Timestamps" /><span></span></label>
+        </div>
+        <div class="setting">
+          <div class="label"><b>Word &amp; token counter</b><small>While you type</small></div>
+          <label class="switch"><input type="checkbox" data-setting="tokenCounter" aria-label="Token counter" /><span></span></label>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <button class="btn" id="open-options">Prompt library &amp; all settings</button>
+      <div class="keys">
+        <span><kbd data-key="K"></kbd> commands</span>
+        <span><kbd data-key="P"></kbd> prompts</span>
+        <span><kbd data-key="J"></kbd> outline</span>
+      </div>
+    </footer>
+
+    <script src="../shared/settings.js"></script>
+    <script src="../ui/settings-form.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

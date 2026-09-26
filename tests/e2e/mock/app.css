@@ -1,0 +1,76 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  font: 15px/1.5 system-ui, sans-serif;
+}
+#root {
+  display: flex;
+  height: 100%;
+}
+.sidebar {
+  width: 240px;
+  flex: none;
+  background: #f4f4f4;
+  padding: 16px;
+}
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.scroll {
+  flex: 1;
+  overflow-y: auto;
+}
+.thread {
+  padding: 24px 16px 40px;
+}
+/* The Tailwind classes ChatGPT uses to size the conversation column. */
+.\[--thread-content-max-width\:48rem\] {
+  --thread-content-max-width: 48rem;
+}
+.max-w-\(--thread-content-max-width\) {
+  max-width: var(--thread-content-max-width);
+}
+.mx-auto {
+  margin-left: auto;
+  margin-right: auto;
+}
+.message {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 0;
+}
+.message.user {
+  align-items: flex-end;
+}
+.message.user .whitespace-pre-wrap {
+  background: #eee;
+  border-radius: 14px;
+  padding: 8px 12px;
+  white-space: pre-wrap;
+}
+.markdown {
+  white-space: pre-wrap;
+  min-height: 120px;
+}
+#thread-bottom-container {
+  padding: 12px 16px 20px;
+}
+.composer {
+  display: flex;
+  gap: 8px;
+  border: 1px solid #ccc;
+  border-radius: 20px;
+  padding: 10px;
+}
+#prompt-textarea {
+  flex: 1;
+  min-height: 24px;
+  outline: none;
+}
+#prompt-textarea p {
+  margin: 0;
+}

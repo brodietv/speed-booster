@@ -1,0 +1,29 @@
+.print-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  background: var(--raised);
+  border-bottom: 1px solid var(--border);
+  font-weight: 550;
+}
+.print-bar .spacer {
+  flex: 1;
+}
+.print-bar img {
+  border-radius: 6px;
+}
+.print-bar .hint {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 13px;
+}
+
+@media print {
+  .print-bar {
+    display: none;
+  }
+}

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en" class="light">
+  <head>
+    <meta charset="utf-8" />
+    <title>Mock ChatGPT</title>
+    <link rel="stylesheet" href="/mock/app.css" />
+  </head>
+  <body>
+    <div id="root">
+      <nav class="sidebar">Mock ChatGPT</nav>
+      <main>
+        <div class="scroll" data-scroll-root>
+          <div id="thread" class="thread"></div>
+        </div>
+        <div id="thread-bottom-container" class="[--thread-content-max-width:48rem]">
+          <form data-type="unified-composer" class="mx-auto max-w-(--thread-content-max-width) composer">
+            <div id="prompt-textarea" class="ProseMirror" contenteditable="true" role="textbox"><p><br /></p></div>
+            <button id="composer-submit-button" data-testid="send-button" type="submit" disabled>Send</button>
+          </form>
+        </div>
+      </main>
+    </div>
+    <script src="/mock/app.js"></script>
+  </body>
+</html>
